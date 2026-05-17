@@ -1,0 +1,21 @@
+UW BESTELLING IS ONTVANGEN — {shop_name}
+=========================================
+
+Beste {customer_name},
+
+Bedankt voor uw bestelling bij {shop_name}. Wij hebben uw bestelling
+ontvangen en gaan deze nu verwerken.
+
+Bestelnummer    : {order_reference}
+Besteldatum     : {order_date}
+Totaalbedrag    : {order_total}
+{quotation_note_txt}
+WAT GEBEURT ER NU?
+U heeft gekozen voor betaling op factuur. U ontvangt binnen enkele
+werkdagen een factuur per e-mail. Betaal het bedrag binnen de
+betalingstermijn die op de factuur staat vermeld.
+
+Heeft u vragen? Neem contact op via {shop_email}.
+
+Met vriendelijke groet,
+{shop_name}

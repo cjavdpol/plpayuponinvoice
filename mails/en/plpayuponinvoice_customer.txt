@@ -1,0 +1,21 @@
+YOUR ORDER HAS BEEN RECEIVED — {shop_name}
+==========================================
+
+Dear {customer_name},
+
+Thank you for your order at {shop_name}. We have received your order
+and will now start processing it.
+
+Order reference : {order_reference}
+Order date      : {order_date}
+Order total     : {order_total}
+{quotation_note_txt}
+WHAT HAPPENS NEXT?
+You have chosen to pay upon invoice. You will receive an invoice by
+email within a few business days. Please pay within the payment term
+stated on the invoice.
+
+If you have any questions, please contact us at {shop_email}.
+
+Kind regards,
+{shop_name}

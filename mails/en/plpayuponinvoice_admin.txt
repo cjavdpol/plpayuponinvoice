@@ -1,0 +1,18 @@
+NEW ORDER AWAITING INVOICE — {shop_name}
+========================================
+{quotation_note_txt}
+A customer has placed an order using Pay upon Invoice.
+Please create an invoice in the bookkeeping system and send it to the customer.
+
+Order reference : {order_reference}
+Order ID        : #{order_id}
+Order date      : {order_date}
+Shipping        : {shipping_display}
+Order total     : {order_total}
+Customer name   : {customer_name}
+Customer email  : {customer_email}
+
+View order: {admin_order_url}
+
+--
+This is an automated notification from {shop_name}.

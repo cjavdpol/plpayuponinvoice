@@ -1,0 +1,60 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Your order has been received</title>
+</head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;margin:0;padding:0;background:#f4f4f4;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f4;">
+  <tr>
+    <td align="center" style="padding:30px 0;">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:4px;overflow:hidden;">
+
+        <tr>
+          <td style="background:#ffffff;padding:20px 32px;text-align:center;">
+            <img src="{shop_logo}" alt="{shop_name}" style="max-height:80px;max-width:260px;display:block;margin:0 auto;" />
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px;">
+            <h2 style="margin-top:0;color:#4169E1;font-size:18px;">Your order has been received!</h2>
+
+            <p>Dear {customer_name},</p>
+
+            <p>Thank you for your order at <strong>{shop_name}</strong>. We have received your order and will now start processing it.</p>
+
+            <table width="100%" cellpadding="8" cellspacing="0" border="0" style="border-collapse:collapse;margin:20px 0;">
+              <tr style="background:#f4f4f4;">
+                <td style="width:40%;font-weight:bold;">Order reference</td>
+                <td>{order_reference}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold;">Order date</td>
+                <td>{order_date}</td>
+              </tr>
+              <tr style="background:#f4f4f4;">
+                <td style="font-weight:bold;">Order total</td>
+                <td><strong>{order_total}</strong></td>
+              </tr>
+            </table>
+
+            {quotation_note}
+
+            <h3 style="color:#4169E1;">What happens next?</h3>
+            <p>You have chosen to pay upon invoice. You will receive an invoice by email within a few business days.
+            Please pay within the payment term stated on the invoice.</p>
+
+            <p>If you have any questions, please contact us at
+            <a href="mailto:{shop_email}" style="color:#4169E1;">{shop_email}</a>.</p>
+
+            <p>Kind regards,<br />
+            <strong>{shop_name}</strong></p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

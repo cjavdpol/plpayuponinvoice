@@ -1,0 +1,76 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>New order awaiting invoice</title>
+</head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;margin:0;padding:0;background:#f4f4f4;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f4;">
+  <tr>
+    <td align="center" style="padding:30px 0;">
+      <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:4px;overflow:hidden;">
+
+        <tr>
+          <td style="background:#ffffff;padding:20px 32px;text-align:center;">
+            <img src="{shop_logo}" alt="{shop_name}" style="max-height:80px;max-width:260px;display:block;margin:0 auto;" />
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px;">
+            <h2 style="margin-top:0;color:#4169E1;font-size:18px;">New order awaiting invoice</h2>
+
+            {quotation_note}
+
+            <p>A customer has placed an order using <strong>Pay upon Invoice</strong>.
+            Please create an invoice in the bookkeeping system and send it to the customer.</p>
+
+            <table width="100%" cellpadding="8" cellspacing="0" border="0" style="border-collapse:collapse;margin:20px 0;">
+              <tr style="background:#f4f4f4;">
+                <td style="width:40%;font-weight:bold;">Order reference</td>
+                <td>{order_reference}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold;">Order ID</td>
+                <td>#{order_id}</td>
+              </tr>
+              <tr style="background:#f4f4f4;">
+                <td style="font-weight:bold;">Order date</td>
+                <td>{order_date}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold;">Shipping</td>
+                <td>{shipping_display}</td>
+              </tr>
+              <tr style="background:#f4f4f4;">
+                <td style="font-weight:bold;">Order total</td>
+                <td><strong>{order_total}</strong></td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold;">Customer name</td>
+                <td>{customer_name}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:bold;">Customer email</td>
+                <td>{customer_email}</td>
+              </tr>
+            </table>
+
+            <p style="text-align:center;margin:28px 0;">
+              <a href="{admin_order_url}"
+                 style="display:inline-block;background:#4169E1;color:#ffffff;padding:12px 28px;border-radius:4px;text-decoration:none;font-weight:bold;">
+                View order in back office
+              </a>
+            </p>
+
+            <p style="color:#666;font-size:12px;margin-top:32px;">
+              This is an automated notification from {shop_name}.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

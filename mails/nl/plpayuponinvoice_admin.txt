@@ -1,0 +1,18 @@
+NIEUWE BESTELLING — FACTUUR AANMAKEN — {shop_name}
+==================================================
+{quotation_note_txt}
+Een klant heeft een bestelling geplaatst via Betalen op factuur.
+Maak een factuur aan in het boekhoudpakket en stuur deze naar de klant.
+
+Bestelnummer    : {order_reference}
+Order ID        : #{order_id}
+Besteldatum     : {order_date}
+Verzendkosten   : {shipping_display}
+Totaalbedrag    : {order_total}
+Klantnaam       : {customer_name}
+E-mail klant    : {customer_email}
+
+Bekijk bestelling: {admin_order_url}
+
+--
+Dit is een automatische melding van {shop_name}.
