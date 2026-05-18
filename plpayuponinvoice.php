@@ -108,14 +108,11 @@ class Plpayuponinvoice extends PaymentModule
     // -------------------------------------------------------------------------
 
     /**
-     * Replaces the shipping cost display in the order summary with "Quotation"
-     * when the quotation carrier is selected, instead of showing "Free".
+     * Returns the configured quotation carrier id_reference values.
+     * id_reference is stable across carrier edits; id_carrier changes every time
+     * a carrier is saved in the back office.
      */
-    /**
-     * Returns the configured quotation carrier IDs as an array of ints.
-     * Supports both legacy single-value ("3") and multi-value ("3,7") storage.
-     */
-    private function getQuotationCarrierIds(): array
+    private function getQuotationCarrierRefs(): array
     {
         $value = Configuration::get(self::CONFIG_QUOTATION_CARRIER);
         if (!$value) {
@@ -125,12 +122,44 @@ class Plpayuponinvoice extends PaymentModule
     }
 
     /**
+     * Returns true when the given id_carrier belongs to a quotation carrier,
+     * matching by id_reference so carrier edits don't break the check.
+     */
+    private function isQuotationCarrier(int $idCarrier): bool
+    {
+        $refs = $this->getQuotationCarrierRefs();
+        if (empty($refs) || !$idCarrier) {
+            return false;
+        }
+        $carrier = new Carrier($idCarrier);
+        return Validate::isLoadedObject($carrier) && in_array((int) $carrier->id_reference, $refs);
+    }
+
+    /**
+     * Returns the current active id_carrier values for all configured quotation
+     * carriers. Used by the JS hook, which needs id_carrier for DOM selectors.
+     */
+    private function getActiveCarrierIdsForQuotation(): array
+    {
+        $refs = $this->getQuotationCarrierRefs();
+        if (empty($refs)) {
+            return [];
+        }
+        $refsStr = implode(',', $refs);
+        $rows = Db::getInstance()->executeS(
+            'SELECT `id_carrier` FROM `' . _DB_PREFIX_ . 'carrier`
+             WHERE `id_reference` IN (' . $refsStr . ') AND `deleted` = 0 AND `active` = 1'
+        );
+        return $rows ? array_map('intval', array_column($rows, 'id_carrier')) : [];
+    }
+
+    /**
      * Injects JS that replaces "Free" with "Quotation" for quotation carriers
      * in the carrier selection list during checkout.
      */
     public function hookDisplayBeforeCarrier(array $params): string
     {
-        $carrierIds = $this->getQuotationCarrierIds();
+        $carrierIds = $this->getActiveCarrierIdsForQuotation();
         if (empty($carrierIds)) {
             return '';
         }
@@ -178,13 +207,8 @@ class Plpayuponinvoice extends PaymentModule
 
     public function hookActionPresentCart(array $params): void
     {
-        $carrierIds = $this->getQuotationCarrierIds();
-        if (empty($carrierIds)) {
-            return;
-        }
-
         $cart = $this->context->cart;
-        if (!$cart || !in_array((int) $cart->id_carrier, $carrierIds)) {
+        if (!$cart || !$this->isQuotationCarrier((int) $cart->id_carrier)) {
             return;
         }
 
@@ -207,11 +231,6 @@ class Plpayuponinvoice extends PaymentModule
      */
     public function hookActionPresentOrder(array $params): void
     {
-        $carrierIds = $this->getQuotationCarrierIds();
-        if (empty($carrierIds)) {
-            return;
-        }
-
         // Load the order directly from the request — more reliable than
         // parsing the carrier out of the presented lazy array.
         $orderId = (int) Tools::getValue('id_order');
@@ -220,7 +239,7 @@ class Plpayuponinvoice extends PaymentModule
         }
 
         $order = new Order($orderId);
-        if (!Validate::isLoadedObject($order) || !in_array((int) $order->id_carrier, $carrierIds)) {
+        if (!Validate::isLoadedObject($order) || !$this->isQuotationCarrier((int) $order->id_carrier)) {
             return;
         }
 
@@ -242,12 +261,7 @@ class Plpayuponinvoice extends PaymentModule
      */
     public function hookActionPresentPaymentOptions(array $params): void
     {
-        $carrierIds = $this->getQuotationCarrierIds();
-        if (empty($carrierIds)) {
-            return;
-        }
-
-        if (!in_array((int) $this->context->cart->id_carrier, $carrierIds)) {
+        if (!$this->isQuotationCarrier((int) $this->context->cart->id_carrier)) {
             return;
         }
 
@@ -268,8 +282,7 @@ class Plpayuponinvoice extends PaymentModule
             return [];
         }
 
-        $carrierIds = $this->getQuotationCarrierIds();
-        $isQuotation = (!empty($carrierIds) && in_array((int) $this->context->cart->id_carrier, $carrierIds));
+        $isQuotation = $this->isQuotationCarrier((int) $this->context->cart->id_carrier);
 
         $this->context->smarty->assign([
             'module_dir'          => $this->_path,
@@ -302,8 +315,7 @@ class Plpayuponinvoice extends PaymentModule
         /** @var Order $order */
         $order = $params['order'];
 
-        $carrierIds = $this->getQuotationCarrierIds();
-        $isQuotation = (!empty($carrierIds) && in_array((int) $order->id_carrier, $carrierIds));
+        $isQuotation = $this->isQuotationCarrier((int) $order->id_carrier);
 
         $this->context->smarty->assign([
             'order_reference'      => $order->reference,
@@ -397,7 +409,7 @@ class Plpayuponinvoice extends PaymentModule
             Carrier::ALL_CARRIERS
         );
 
-        $selectedIds = $this->getQuotationCarrierIds();
+        $selectedRefs = $this->getQuotationCarrierRefs();
 
         $helper = new HelperForm();
         $helper->show_toolbar = false;
@@ -436,7 +448,7 @@ class Plpayuponinvoice extends PaymentModule
                         'type'         => 'html',
                         'label'        => $this->l('Shipping on quotation carriers'),
                         'name'         => 'quotation_carriers_block',
-                        'html_content' => $this->renderCarrierMultiSelect($carriers, $selectedIds),
+                        'html_content' => $this->renderCarrierMultiSelect($carriers, $selectedRefs),
                     ],
                 ],
                 'submit' => [
@@ -446,7 +458,7 @@ class Plpayuponinvoice extends PaymentModule
         ]]);
     }
 
-    private function renderCarrierMultiSelect(array $carriers, array $selectedIds): string
+    private function renderCarrierMultiSelect(array $carriers, array $selectedRefs): string
     {
         $fieldName = self::CONFIG_QUOTATION_CARRIER . '[]';
         $desc = $this->l(
@@ -461,10 +473,10 @@ class Plpayuponinvoice extends PaymentModule
             . ' class="form-control" style="height:auto;min-height:80px;">';
 
         foreach ($carriers as $carrier) {
-            $id       = (int) $carrier['id_carrier'];
+            $ref      = (int) $carrier['id_reference'];
             $name     = htmlspecialchars($carrier['name']);
-            $selected = in_array($id, $selectedIds) ? ' selected="selected"' : '';
-            $html    .= '<option value="' . $id . '"' . $selected . '>' . $name . '</option>';
+            $selected = in_array($ref, $selectedRefs) ? ' selected="selected"' : '';
+            $html    .= '<option value="' . $ref . '"' . $selected . '>' . $name . '</option>';
         }
 
         $html .= '</select>';
