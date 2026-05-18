@@ -45,6 +45,7 @@ class Plpayuponinvoice extends PaymentModule
             && $this->registerHook('actionPresentPaymentOptions')
             && $this->registerHook('actionPresentCart')
             && $this->registerHook('actionPresentOrder')
+            && $this->registerHook('displayBeforeCarrier')
             && $this->createOrderState()
             && Configuration::updateValue(self::CONFIG_ADMIN_EMAIL, Configuration::get('PS_SHOP_EMAIL'))
             && Configuration::updateValue(self::CONFIG_QUOTATION_CARRIER, 0);
@@ -110,15 +111,80 @@ class Plpayuponinvoice extends PaymentModule
      * Replaces the shipping cost display in the order summary with "Quotation"
      * when the quotation carrier is selected, instead of showing "Free".
      */
+    /**
+     * Returns the configured quotation carrier IDs as an array of ints.
+     * Supports both legacy single-value ("3") and multi-value ("3,7") storage.
+     */
+    private function getQuotationCarrierIds(): array
+    {
+        $value = Configuration::get(self::CONFIG_QUOTATION_CARRIER);
+        if (!$value) {
+            return [];
+        }
+        return array_values(array_filter(array_map('intval', explode(',', $value))));
+    }
+
+    /**
+     * Injects JS that replaces "Free" with "Quotation" for quotation carriers
+     * in the carrier selection list during checkout.
+     */
+    public function hookDisplayBeforeCarrier(array $params): string
+    {
+        $carrierIds = $this->getQuotationCarrierIds();
+        if (empty($carrierIds)) {
+            return '';
+        }
+
+        $idsJson      = json_encode(array_values($carrierIds));
+        $labelJson    = json_encode($this->l('Quotation'));
+
+        return '<script>
+(function () {
+    var ids   = ' . $idsJson . ';
+    var label = ' . $labelJson . ';
+
+    function applyLabels() {
+        ids.forEach(function (id) {
+            var el = document.querySelector(\'label[for="delivery_option_\' + id + \'"] .carrier-price\');
+            if (el && el.textContent !== label) { el.textContent = label; }
+        });
+    }
+
+    function init() {
+        applyLabels();
+
+        var container = document.querySelector(\'.delivery-options-list, #js-delivery\');
+        if (container) {
+            new MutationObserver(applyLabels).observe(container, { childList: true, subtree: true });
+        }
+
+        if (window.prestashop) {
+            prestashop.on(\'updatedDeliveryForm\', applyLabels);
+        } else {
+            document.addEventListener(\'DOMContentLoaded\', function () {
+                if (window.prestashop) { prestashop.on(\'updatedDeliveryForm\', applyLabels); }
+            });
+        }
+    }
+
+    if (document.readyState === \'loading\') {
+        document.addEventListener(\'DOMContentLoaded\', init);
+    } else {
+        init();
+    }
+}());
+</script>';
+    }
+
     public function hookActionPresentCart(array $params): void
     {
-        $carrierId = (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER);
-        if (!$carrierId) {
+        $carrierIds = $this->getQuotationCarrierIds();
+        if (empty($carrierIds)) {
             return;
         }
 
         $cart = $this->context->cart;
-        if (!$cart || (int) $cart->id_carrier !== $carrierId) {
+        if (!$cart || !in_array((int) $cart->id_carrier, $carrierIds)) {
             return;
         }
 
@@ -141,8 +207,8 @@ class Plpayuponinvoice extends PaymentModule
      */
     public function hookActionPresentOrder(array $params): void
     {
-        $carrierId = (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER);
-        if (!$carrierId) {
+        $carrierIds = $this->getQuotationCarrierIds();
+        if (empty($carrierIds)) {
             return;
         }
 
@@ -154,7 +220,7 @@ class Plpayuponinvoice extends PaymentModule
         }
 
         $order = new Order($orderId);
-        if (!Validate::isLoadedObject($order) || (int) $order->id_carrier !== $carrierId) {
+        if (!Validate::isLoadedObject($order) || !in_array((int) $order->id_carrier, $carrierIds)) {
             return;
         }
 
@@ -176,12 +242,12 @@ class Plpayuponinvoice extends PaymentModule
      */
     public function hookActionPresentPaymentOptions(array $params): void
     {
-        $carrierId = (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER);
-        if (!$carrierId) {
+        $carrierIds = $this->getQuotationCarrierIds();
+        if (empty($carrierIds)) {
             return;
         }
 
-        if ((int) $this->context->cart->id_carrier !== $carrierId) {
+        if (!in_array((int) $this->context->cart->id_carrier, $carrierIds)) {
             return;
         }
 
@@ -202,8 +268,8 @@ class Plpayuponinvoice extends PaymentModule
             return [];
         }
 
-        $carrierId = (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER);
-        $isQuotation = ($carrierId && (int) $this->context->cart->id_carrier === $carrierId);
+        $carrierIds = $this->getQuotationCarrierIds();
+        $isQuotation = (!empty($carrierIds) && in_array((int) $this->context->cart->id_carrier, $carrierIds));
 
         $this->context->smarty->assign([
             'module_dir'          => $this->_path,
@@ -236,8 +302,8 @@ class Plpayuponinvoice extends PaymentModule
         /** @var Order $order */
         $order = $params['order'];
 
-        $carrierId = (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER);
-        $isQuotation = ($carrierId && (int) $order->id_carrier === $carrierId);
+        $carrierIds = $this->getQuotationCarrierIds();
+        $isQuotation = (!empty($carrierIds) && in_array((int) $order->id_carrier, $carrierIds));
 
         $this->context->smarty->assign([
             'order_reference'      => $order->reference,
@@ -302,13 +368,17 @@ class Plpayuponinvoice extends PaymentModule
 
         if (Tools::isSubmit('submitPlpayuponinvoice')) {
             $adminEmail = trim(Tools::getValue(self::CONFIG_ADMIN_EMAIL));
-            $carrierId  = (int) Tools::getValue(self::CONFIG_QUOTATION_CARRIER);
+            $postedIds  = Tools::getValue(self::CONFIG_QUOTATION_CARRIER);
+            if (!is_array($postedIds)) {
+                $postedIds = $postedIds ? [$postedIds] : [];
+            }
+            $carrierIds = implode(',', array_filter(array_map('intval', $postedIds)));
 
             if (!Validate::isEmail($adminEmail)) {
                 $output .= $this->displayError($this->l('Please enter a valid email address.'));
             } else {
                 Configuration::updateValue(self::CONFIG_ADMIN_EMAIL, $adminEmail);
-                Configuration::updateValue(self::CONFIG_QUOTATION_CARRIER, $carrierId);
+                Configuration::updateValue(self::CONFIG_QUOTATION_CARRIER, $carrierIds);
                 $output .= $this->displayConfirmation($this->l('Settings saved successfully.'));
             }
         }
@@ -327,13 +397,7 @@ class Plpayuponinvoice extends PaymentModule
             Carrier::ALL_CARRIERS
         );
 
-        $carrierOptions = [['id_carrier' => 0, 'name' => '— ' . $this->l('None (disabled)') . ' —']];
-        foreach ($carriers as $carrier) {
-            $carrierOptions[] = [
-                'id_carrier' => (int) $carrier['id_carrier'],
-                'name'       => $carrier['name'],
-            ];
-        }
+        $selectedIds = $this->getQuotationCarrierIds();
 
         $helper = new HelperForm();
         $helper->show_toolbar = false;
@@ -347,8 +411,7 @@ class Plpayuponinvoice extends PaymentModule
         $helper->token = Tools::getAdminTokenLite('AdminModules');
         $helper->tpl_vars = [
             'fields_value' => [
-                self::CONFIG_ADMIN_EMAIL       => Configuration::get(self::CONFIG_ADMIN_EMAIL),
-                self::CONFIG_QUOTATION_CARRIER => (int) Configuration::get(self::CONFIG_QUOTATION_CARRIER),
+                self::CONFIG_ADMIN_EMAIL => Configuration::get(self::CONFIG_ADMIN_EMAIL),
             ],
             'languages'   => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
@@ -370,18 +433,10 @@ class Plpayuponinvoice extends PaymentModule
                         'desc'     => $this->l('Receives a notification whenever a new order needs an invoice.'),
                     ],
                     [
-                        'type'    => 'select',
-                        'label'   => $this->l('Shipping on quotation carrier'),
-                        'name'    => self::CONFIG_QUOTATION_CARRIER,
-                        'desc'    => $this->l(
-                            'When this carrier is selected at checkout, all other payment methods are hidden '
-                            . 'and the confirmation messages mention that a shipping quotation will follow.'
-                        ),
-                        'options' => [
-                            'query' => $carrierOptions,
-                            'id'    => 'id_carrier',
-                            'name'  => 'name',
-                        ],
+                        'type'         => 'html',
+                        'label'        => $this->l('Shipping on quotation carriers'),
+                        'name'         => 'quotation_carriers_block',
+                        'html_content' => $this->renderCarrierMultiSelect($carriers, $selectedIds),
                     ],
                 ],
                 'submit' => [
@@ -389,5 +444,32 @@ class Plpayuponinvoice extends PaymentModule
                 ],
             ],
         ]]);
+    }
+
+    private function renderCarrierMultiSelect(array $carriers, array $selectedIds): string
+    {
+        $fieldName = self::CONFIG_QUOTATION_CARRIER . '[]';
+        $desc = $this->l(
+            'When any of these carriers is selected at checkout, all other payment methods are hidden '
+            . 'and the confirmation messages mention that a shipping quotation will follow. '
+            . 'Hold Ctrl (or Cmd on Mac) to select multiple carriers.'
+        );
+
+        $html = '<select name="' . htmlspecialchars($fieldName) . '"'
+            . ' id="' . self::CONFIG_QUOTATION_CARRIER . '"'
+            . ' multiple="multiple"'
+            . ' class="form-control" style="height:auto;min-height:80px;">';
+
+        foreach ($carriers as $carrier) {
+            $id       = (int) $carrier['id_carrier'];
+            $name     = htmlspecialchars($carrier['name']);
+            $selected = in_array($id, $selectedIds) ? ' selected="selected"' : '';
+            $html    .= '<option value="' . $id . '"' . $selected . '>' . $name . '</option>';
+        }
+
+        $html .= '</select>';
+        $html .= '<p class="help-block">' . htmlspecialchars($desc) . '</p>';
+
+        return $html;
     }
 }
