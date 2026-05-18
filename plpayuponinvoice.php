@@ -172,11 +172,27 @@ class Plpayuponinvoice extends PaymentModule
     var ids   = ' . $idsJson . ';
     var label = ' . $labelJson . ';
 
+    function isQuotationSelected() {
+        for (var i = 0; i < ids.length; i++) {
+            var radio = document.getElementById(\'delivery_option_\' + ids[i]);
+            if (radio && radio.checked) { return true; }
+        }
+        return false;
+    }
+
     function applyLabels() {
         ids.forEach(function (id) {
             var el = document.querySelector(\'label[for="delivery_option_\' + id + \'"] .carrier-price\');
             if (el && el.textContent !== label) { el.textContent = label; }
         });
+
+        if (isQuotationSelected()) {
+            var ps = document.querySelector(\'#cart-subtotal-shipping .value\');
+            if (ps && ps.textContent !== label) { ps.textContent = label; }
+
+            var st = document.querySelector(\'.stsb_cart_summary_subtotal_shipping .stsb_price\');
+            if (st && st.textContent !== label) { st.textContent = label; }
+        }
     }
 
     function init() {
@@ -187,11 +203,21 @@ class Plpayuponinvoice extends PaymentModule
             new MutationObserver(applyLabels).observe(container, { childList: true, subtree: true });
         }
 
+        document.addEventListener(\'change\', function (e) {
+            if (e.target && e.target.name && e.target.name.indexOf(\'delivery_option\') !== -1) {
+                applyLabels();
+            }
+        });
+
         if (window.prestashop) {
             prestashop.on(\'updatedDeliveryForm\', applyLabels);
+            prestashop.on(\'updateCart\', applyLabels);
         } else {
             document.addEventListener(\'DOMContentLoaded\', function () {
-                if (window.prestashop) { prestashop.on(\'updatedDeliveryForm\', applyLabels); }
+                if (window.prestashop) {
+                    prestashop.on(\'updatedDeliveryForm\', applyLabels);
+                    prestashop.on(\'updateCart\', applyLabels);
+                }
             });
         }
     }
@@ -213,11 +239,12 @@ class Plpayuponinvoice extends PaymentModule
         }
 
         $presentedCart = $params['presentedCart'];
-        $subtotals = $presentedCart['subtotals'];
+        $subtotals     = $presentedCart['subtotals'];
+        $shippingData  = $subtotals['shipping'];
 
-        if (isset($subtotals['shipping'])) {
-            $subtotals['shipping']['value'] = $this->l('Quotation');
-            $presentedCart['subtotals'] = $subtotals;
+        if (is_array($shippingData)) {
+            $shippingData['value'] = $this->l('Quotation');
+            $subtotals->offsetSet('shipping', $shippingData, true);
         }
     }
 
