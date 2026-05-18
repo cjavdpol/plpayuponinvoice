@@ -240,11 +240,10 @@ class Plpayuponinvoice extends PaymentModule
 
         $presentedCart = $params['presentedCart'];
         $subtotals     = $presentedCart['subtotals'];
-        $shippingData  = $subtotals['shipping'];
 
-        if (is_array($shippingData)) {
-            $shippingData['value'] = $this->l('Quotation');
-            $subtotals->offsetSet('shipping', $shippingData, true);
+        if (isset($subtotals['shipping']) && is_array($subtotals['shipping'])) {
+            $subtotals['shipping']['value'] = $this->l('Quotation');
+            $presentedCart['subtotals'] = $subtotals;
         }
     }
 
